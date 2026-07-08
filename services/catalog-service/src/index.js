@@ -194,6 +194,86 @@ app.get("/products/:id", async (req, res) => {
   res.json({ product: { ...product, variants: variantsResult.rows } });
 });
 
+app.get("/products", async (req, res) => {
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+  const offset = (page - 1) * limit;
+
+  const sortKey = SORT_OPTIONS[req.query.sort] ? req.query.sort : "newest";
+  const orderClause = SORT_OPTIONS[sortKey];
+
+  const { whereClause, values } = buildProductFilters(req.query);
+
+  const countQuery = `
+    SELECT COUNT(*) FROM products p
+    JOIN categories c ON c.id = p.category_id
+    ${whereClause}
+  `;
+  const countResult = await pool.query(countQuery, values);
+  const total = parseInt(countResult.rows[0].count);
+
+  const dataQuery = `
+    SELECT p.* FROM products p
+    JOIN categories c ON c.id = p.category_id
+    ${whereClause}
+    ORDER BY ${orderClause}
+    LIMIT $${values.length + 1} OFFSET $${values.length + 2}
+  `;
+  const dataResult = await pool.query(dataQuery, [...values, limit, offset]);
+
+  res.json({
+    products: dataResult.rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
+});
+
+// ---------- helpers ----------
+// (add this alongside buildCategoryTree and slugify)
+
+function buildProductFilters(query) {
+  const conditions = [];
+  const values = [];
+
+  if (query.category) {
+    values.push(query.category);
+    conditions.push(`c.slug = $${values.length}`);
+  }
+
+  if (query.gender) {
+    values.push(query.gender);
+    conditions.push(`p.gender = $${values.length}`);
+  }
+
+  if (query.minPrice) {
+    values.push(Number(query.minPrice));
+    conditions.push(`p.base_price_cents >= $${values.length}`);
+  }
+
+  if (query.maxPrice) {
+    values.push(Number(query.maxPrice));
+    conditions.push(`p.base_price_cents <= $${values.length}`);
+  }
+
+  if (query.q) {
+    values.push(`%${query.q}%`);
+    conditions.push(`(p.name ILIKE $${values.length} OR p.description ILIKE $${values.length})`);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  return { whereClause, values };
+}
+
+const SORT_OPTIONS = {
+  newest: "p.created_at DESC",
+  price_asc: "p.base_price_cents ASC",
+  price_desc: "p.base_price_cents DESC",
+};
+
 // ---------- routes: variants ----------
 
 app.post("/products/:id/variants", async (req, res) => {
