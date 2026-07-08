@@ -19,3 +19,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - Event catalog defining all MVP checkout flow events (`docs/events/event-catalog.md`)
 - Database schema design for MVP services (`docs/database/schema-overview.md`)
 - Checkout flow sequence diagram covering success and failure paths (`docs/architecture/sequence-checkout-flow.md`)
+- auth-service: user signup, login, and health check endpoints
+- auth-service: JWT access tokens with 15-minute expiry
+- auth-service: refresh token issuance, rotation, and revocation
+- auth-service: authentication middleware and role-based access control (RBAC)
+- auth-service: API documentation (`docs/api/auth-service.md`)
