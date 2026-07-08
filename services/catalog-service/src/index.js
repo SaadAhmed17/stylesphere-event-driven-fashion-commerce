@@ -50,8 +50,6 @@ async function initDb() {
 
 // ---------- helpers ----------
 
-// Turns a flat list of categories (each with a parent_id) into a nested
-// tree structure, e.g. Men -> [ Tops -> [ T-Shirts ] ]
 function buildCategoryTree(categories) {
   const byId = new Map();
   categories.forEach((cat) => {
@@ -82,7 +80,9 @@ function slugify(name) {
     .replace(/(^-|-$)/g, "");
 }
 
-// ---------- routes ----------
+const VALID_GENDERS = ["men", "women", "kids", "unisex"];
+
+// ---------- routes: health ----------
 
 app.get("/health", async (req, res) => {
   try {
@@ -92,6 +92,8 @@ app.get("/health", async (req, res) => {
     res.status(503).json({ status: "error", service: "catalog-service", database: "unreachable" });
   }
 });
+
+// ---------- routes: categories ----------
 
 app.post("/categories", async (req, res) => {
   const { name, parentId } = req.body;
@@ -141,6 +143,84 @@ app.get("/categories/:slug", async (req, res) => {
   }
 
   res.json({ category: result.rows[0] });
+});
+
+// ---------- routes: products ----------
+
+app.post("/products", async (req, res) => {
+  const { categoryId, name, description, brand, gender, basePriceCents } = req.body;
+
+  if (!categoryId || !name || basePriceCents === undefined) {
+    return res.status(400).json({ error: "categoryId, name, and basePriceCents are required" });
+  }
+
+  if (gender && !VALID_GENDERS.includes(gender)) {
+    return res.status(400).json({ error: `gender must be one of: ${VALID_GENDERS.join(", ")}` });
+  }
+
+  const categoryCheck = await pool.query("SELECT id FROM categories WHERE id = $1", [categoryId]);
+  if (categoryCheck.rows.length === 0) {
+    return res.status(400).json({ error: "category does not exist" });
+  }
+
+  const slug = slugify(name);
+  const existing = await pool.query("SELECT id FROM products WHERE slug = $1", [slug]);
+  if (existing.rows.length > 0) {
+    return res.status(409).json({ error: "a product with this name already exists" });
+  }
+
+  const result = await pool.query(
+    `INSERT INTO products (category_id, name, slug, description, brand, gender, base_price_cents)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [categoryId, name, slug, description || null, brand || null, gender || null, basePriceCents]
+  );
+
+  res.status(201).json({ product: result.rows[0] });
+});
+
+app.get("/products/:id", async (req, res) => {
+  const productResult = await pool.query("SELECT * FROM products WHERE id = $1", [req.params.id]);
+  const product = productResult.rows[0];
+
+  if (!product) {
+    return res.status(404).json({ error: "product not found" });
+  }
+
+  const variantsResult = await pool.query(
+    "SELECT * FROM product_variants WHERE product_id = $1 ORDER BY id",
+    [req.params.id]
+  );
+
+  res.json({ product: { ...product, variants: variantsResult.rows } });
+});
+
+// ---------- routes: variants ----------
+
+app.post("/products/:id/variants", async (req, res) => {
+  const productId = req.params.id;
+  const { sku, size, color, priceCents, imageUrl } = req.body;
+
+  if (!sku) {
+    return res.status(400).json({ error: "sku is required" });
+  }
+
+  const productCheck = await pool.query("SELECT id FROM products WHERE id = $1", [productId]);
+  if (productCheck.rows.length === 0) {
+    return res.status(400).json({ error: "product does not exist" });
+  }
+
+  const existing = await pool.query("SELECT id FROM product_variants WHERE sku = $1", [sku]);
+  if (existing.rows.length > 0) {
+    return res.status(409).json({ error: "a variant with this SKU already exists" });
+  }
+
+  const result = await pool.query(
+    `INSERT INTO product_variants (product_id, sku, size, color, price_cents, image_url)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [productId, sku, size || null, color || null, priceCents || null, imageUrl || null]
+  );
+
+  res.status(201).json({ variant: result.rows[0] });
 });
 
 async function start() {
