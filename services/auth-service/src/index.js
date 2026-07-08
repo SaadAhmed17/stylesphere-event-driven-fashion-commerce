@@ -9,29 +9,6 @@ const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_TOKEN_TTL_DAYS = 7;
 
-// ... app, pool, initDb, /health, /signup, /login all stay exactly as before ...
-
-function generateRefreshToken() {
-  return crypto.randomBytes(40).toString("hex");
-}
-
-function hashToken(token) {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
-
-async function issueRefreshToken(userId) {
-  const rawToken = generateRefreshToken();
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
-
-  await pool.query(
-    "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-    [userId, tokenHash, expiresAt]
-  );
-
-  return rawToken;
-}
-
 const app = express();
 app.use(express.json());
 
@@ -63,6 +40,61 @@ async function initDb() {
 
   console.log("[auth-service] users and refresh_tokens tables ready");
 }
+
+// ---------- helper functions ----------
+
+function generateRefreshToken() {
+  return crypto.randomBytes(40).toString("hex");
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function issueRefreshToken(userId) {
+  const rawToken = generateRefreshToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  await pool.query(
+    "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+    [userId, tokenHash, expiresAt]
+  );
+
+  return rawToken;
+}
+
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "missing or malformed authorization header" });
+  }
+
+  const token = authHeader.slice("Bearer ".length);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded; // { userId, email, role, iat, exp }
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "invalid or expired token" });
+  }
+}
+
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "not authenticated" });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "you do not have permission to perform this action" });
+    }
+    next();
+  };
+}
+
+// ---------- routes ----------
 
 app.get("/health", async (req, res) => {
   try {
@@ -108,8 +140,6 @@ app.post("/login", async (req, res) => {
   const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
   const user = result.rows[0];
 
-  // Deliberately the same error for "no such user" and "wrong password" -
-  // see explanation below this code block for why that matters.
   if (!user) {
     return res.status(401).json({ error: "invalid email or password" });
   }
@@ -124,8 +154,7 @@ app.post("/login", async (req, res) => {
     JWT_SECRET,
     { expiresIn: "15m" }
   );
-
-    const refreshToken = await issueRefreshToken(user.id);
+  const refreshToken = await issueRefreshToken(user.id);
 
   res.json({
     accessToken,
@@ -151,7 +180,6 @@ app.post("/refresh", async (req, res) => {
     return res.status(401).json({ error: "invalid or expired refresh token" });
   }
 
-  // Rotation: revoke the one just used, issue a brand new one
   await pool.query("UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1", [stored.id]);
   const newRefreshToken = await issueRefreshToken(stored.user_id);
 
@@ -180,6 +208,27 @@ app.post("/logout", async (req, res) => {
   );
 
   res.json({ message: "logged out" });
+});
+
+app.get("/me", authenticate, async (req, res) => {
+  const result = await pool.query(
+    "SELECT id, email, role, created_at FROM users WHERE id = $1",
+    [req.user.userId]
+  );
+  const user = result.rows[0];
+
+  if (!user) {
+    return res.status(404).json({ error: "user not found" });
+  }
+
+  res.json({ user });
+});
+
+app.get("/admin/users", authenticate, requireRole("admin", "super_admin"), async (req, res) => {
+  const result = await pool.query(
+    "SELECT id, email, role, created_at FROM users ORDER BY created_at DESC"
+  );
+  res.json({ users: result.rows });
 });
 
 async function start() {
