@@ -1,14 +1,46 @@
 import express from "express";
+import pg from "pg";
 
 const PORT = process.env.PORT || 4003;
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const app = express();
 app.use(express.json());
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "auth-service" });
+const pool = new pg.Pool({ connectionString: DATABASE_URL });
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'customer'
+        CHECK (role IN ('customer', 'admin', 'super_admin')),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  console.log("[auth-service] users table ready");
+}
+
+app.get("/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", service: "auth-service", database: "connected" });
+  } catch (err) {
+    res.status(503).json({ status: "error", service: "auth-service", database: "unreachable" });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`[auth-service] listening on port ${PORT}`);
+async function start() {
+  await initDb();
+  app.listen(PORT, () => {
+    console.log(`[auth-service] listening on port ${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error("[auth-service] failed to start:", err);
+  process.exit(1);
 });

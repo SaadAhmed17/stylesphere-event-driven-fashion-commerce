@@ -1,9 +1,32 @@
 version: "3.9"
 
 services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+      POSTGRES_DB: auth_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
   auth-service:
     build: ./services/auth-service
     environment:
       PORT: 4003
+      DATABASE_URL: postgres://auth_user:auth_pass@auth-db:5432/auth_db
     ports:
       - "4003:4003"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+
+volumes:
+  auth_db_data:
