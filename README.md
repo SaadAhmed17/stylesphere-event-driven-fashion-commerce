@@ -69,8 +69,8 @@ Detailed phase-by-phase breakdown is tracked in
 
 ## Getting started
 
-Currently runnable: **auth-service** (user registration, login, JWT
-authentication, and role-based access control).
+Currently runnable: **auth-service** (authentication, JWT, RBAC) and
+**catalog-service** (categories, products, variants, search/filter/pagination).
 
 **Prerequisites:** Docker Desktop, running.
 
@@ -81,17 +81,13 @@ docker-compose up --build
 ```
 
 Once running:
-- Auth Service: `http://localhost:4003`
-- Health check: `curl http://localhost:4003/health`
-
-Full endpoint documentation: [`docs/api/auth-service.md`](./docs/api/auth-service.md)
+- Auth Service: `http://localhost:4003` — [API docs](./docs/api/auth-service.md)
+- Catalog Service: `http://localhost:4004` — [API docs](./docs/api/catalog-service.md)
 
 More services will be added here as they're built — see [Roadmap](#roadmap).
-*(Setup instructions will be added once the first runnable service exists —
-tracked in Phase 2.)*
 
 ## Author
 
-Built by [Saad Ahmed](https://github.com/SaadAhmed17) as a portfolio project,
+Built by [Saad Ahmed](https://github.com/SaadAhmed17) as a personal portfolio project,
 developed openly and incrementally with documented architecture decisions
 and a real commit history.
