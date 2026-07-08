@@ -2,10 +2,35 @@ import express from "express";
 import pg from "pg";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 
 const PORT = process.env.PORT || 4003;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_TOKEN_TTL_DAYS = 7;
+
+// ... app, pool, initDb, /health, /signup, /login all stay exactly as before ...
+
+function generateRefreshToken() {
+  return crypto.randomBytes(40).toString("hex");
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function issueRefreshToken(userId) {
+  const rawToken = generateRefreshToken();
+  const tokenHash = hashToken(rawToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  await pool.query(
+    "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
+    [userId, tokenHash, expiresAt]
+  );
+
+  return rawToken;
+}
 
 const app = express();
 app.use(express.json());
@@ -24,7 +49,19 @@ async function initDb() {
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
-  console.log("[auth-service] users table ready");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      token_hash TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      revoked_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  console.log("[auth-service] users and refresh_tokens tables ready");
 }
 
 app.get("/health", async (req, res) => {
@@ -88,10 +125,61 @@ app.post("/login", async (req, res) => {
     { expiresIn: "15m" }
   );
 
+    const refreshToken = await issueRefreshToken(user.id);
+
   res.json({
     accessToken,
+    refreshToken,
     user: { id: user.id, email: user.email, role: user.role },
   });
+});
+
+app.post("/refresh", async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ error: "refreshToken is required" });
+  }
+
+  const tokenHash = hashToken(refreshToken);
+  const result = await pool.query(
+    "SELECT * FROM refresh_tokens WHERE token_hash = $1",
+    [tokenHash]
+  );
+  const stored = result.rows[0];
+
+  if (!stored || stored.revoked_at || new Date(stored.expires_at) < new Date()) {
+    return res.status(401).json({ error: "invalid or expired refresh token" });
+  }
+
+  // Rotation: revoke the one just used, issue a brand new one
+  await pool.query("UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1", [stored.id]);
+  const newRefreshToken = await issueRefreshToken(stored.user_id);
+
+  const userResult = await pool.query("SELECT * FROM users WHERE id = $1", [stored.user_id]);
+  const user = userResult.rows[0];
+
+  const accessToken = jwt.sign(
+    { userId: user.id, email: user.email, role: user.role },
+    JWT_SECRET,
+    { expiresIn: "15m" }
+  );
+
+  res.json({ accessToken, refreshToken: newRefreshToken });
+});
+
+app.post("/logout", async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ error: "refreshToken is required" });
+  }
+
+  const tokenHash = hashToken(refreshToken);
+  await pool.query(
+    "UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL",
+    [tokenHash]
+  );
+
+  res.json({ message: "logged out" });
 });
 
 async function start() {
