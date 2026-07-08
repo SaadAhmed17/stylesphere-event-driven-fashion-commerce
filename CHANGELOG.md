@@ -24,3 +24,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - auth-service: refresh token issuance, rotation, and revocation
 - auth-service: authentication middleware and role-based access control (RBAC)
 - auth-service: API documentation (`docs/api/auth-service.md`)
+- catalog-service: category management with nested tree support
+- catalog-service: product and variant management endpoints
+- catalog-service: public browsing endpoint with search, filters, sorting, and pagination
+- catalog-service: JWT authentication and RBAC on admin write routes
+- catalog-service: API documentation (`docs/api/catalog-service.md`)
