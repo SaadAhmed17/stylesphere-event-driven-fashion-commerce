@@ -69,6 +69,24 @@ Detailed phase-by-phase breakdown is tracked in
 
 ## Getting started
 
+Currently runnable: **auth-service** (user registration, login, JWT
+authentication, and role-based access control).
+
+**Prerequisites:** Docker Desktop, running.
+
+```bash
+git clone https://github.com/SaadAhmed17/stylesphere-event-driven-fashion-commerce.git
+cd stylesphere-event-driven-fashion-commerce
+docker-compose up --build
+```
+
+Once running:
+- Auth Service: `http://localhost:4003`
+- Health check: `curl http://localhost:4003/health`
+
+Full endpoint documentation: [`docs/api/auth-service.md`](./docs/api/auth-service.md)
+
+More services will be added here as they're built — see [Roadmap](#roadmap).
 *(Setup instructions will be added once the first runnable service exists —
 tracked in Phase 2.)*
 
