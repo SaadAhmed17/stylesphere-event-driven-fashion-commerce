@@ -48,6 +48,42 @@ async function initDb() {
   console.log("[catalog-service] categories, products, and product_variants tables ready");
 }
 
+// ---------- helpers ----------
+
+// Turns a flat list of categories (each with a parent_id) into a nested
+// tree structure, e.g. Men -> [ Tops -> [ T-Shirts ] ]
+function buildCategoryTree(categories) {
+  const byId = new Map();
+  categories.forEach((cat) => {
+    byId.set(cat.id, { ...cat, children: [] });
+  });
+
+  const tree = [];
+  categories.forEach((cat) => {
+    const node = byId.get(cat.id);
+    if (cat.parent_id) {
+      const parent = byId.get(cat.parent_id);
+      if (parent) {
+        parent.children.push(node);
+      }
+    } else {
+      tree.push(node);
+    }
+  });
+
+  return tree;
+}
+
+function slugify(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// ---------- routes ----------
+
 app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -55,6 +91,56 @@ app.get("/health", async (req, res) => {
   } catch (err) {
     res.status(503).json({ status: "error", service: "catalog-service", database: "unreachable" });
   }
+});
+
+app.post("/categories", async (req, res) => {
+  const { name, parentId } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: "name is required" });
+  }
+
+  if (parentId) {
+    const parentCheck = await pool.query("SELECT id FROM categories WHERE id = $1", [parentId]);
+    if (parentCheck.rows.length === 0) {
+      return res.status(400).json({ error: "parent category does not exist" });
+    }
+  }
+
+  const slug = slugify(name);
+
+  const existing = await pool.query("SELECT id FROM categories WHERE slug = $1", [slug]);
+  if (existing.rows.length > 0) {
+    return res.status(409).json({ error: "a category with this name already exists" });
+  }
+
+  const result = await pool.query(
+    "INSERT INTO categories (name, slug, parent_id) VALUES ($1, $2, $3) RETURNING *",
+    [name, slug, parentId || null]
+  );
+
+  res.status(201).json({ category: result.rows[0] });
+});
+
+app.get("/categories", async (req, res) => {
+  const result = await pool.query("SELECT * FROM categories ORDER BY name");
+
+  if (req.query.flat === "true") {
+    return res.json({ categories: result.rows });
+  }
+
+  const tree = buildCategoryTree(result.rows);
+  res.json({ categories: tree });
+});
+
+app.get("/categories/:slug", async (req, res) => {
+  const result = await pool.query("SELECT * FROM categories WHERE slug = $1", [req.params.slug]);
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "category not found" });
+  }
+
+  res.json({ category: result.rows[0] });
 });
 
 async function start() {
