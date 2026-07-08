@@ -15,3 +15,7 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - ADR 0002: Use event-driven communication with RabbitMQ
 - ADR 0003: Database per service
 - ADR 0004: JWT-based authentication
+- System architecture overview with MVP diagram (`docs/architecture/system-overview.md`)
+- Event catalog defining all MVP checkout flow events (`docs/events/event-catalog.md`)
+- Database schema design for MVP services (`docs/database/schema-overview.md`)
+- Checkout flow sequence diagram covering success and failure paths (`docs/architecture/sequence-checkout-flow.md`)
