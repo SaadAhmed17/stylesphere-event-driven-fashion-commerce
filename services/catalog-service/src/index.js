@@ -1,6 +1,8 @@
 import express from "express";
 import pg from "pg";
+import jwt from "jsonwebtoken";
 
+const JWT_SECRET = process.env.JWT_SECRET;
 const PORT = process.env.PORT || 4004;
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -95,7 +97,7 @@ app.get("/health", async (req, res) => {
 
 // ---------- routes: categories ----------
 
-app.post("/categories", async (req, res) => {
+app.post("/categories", authenticate, requireRole("admin", "super_admin"), async (req, res) => {
   const { name, parentId } = req.body;
 
   if (!name) {
@@ -147,7 +149,7 @@ app.get("/categories/:slug", async (req, res) => {
 
 // ---------- routes: products ----------
 
-app.post("/products", async (req, res) => {
+ app.post("/products", authenticate, requireRole("admin", "super_admin"), async (req, res) => {
   const { categoryId, name, description, brand, gender, basePriceCents } = req.body;
 
   if (!categoryId || !name || basePriceCents === undefined) {
@@ -232,6 +234,36 @@ app.get("/products", async (req, res) => {
   });
 });
 
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "missing or malformed authorization header" });
+  }
+
+  const token = authHeader.slice("Bearer ".length);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "invalid or expired token" });
+  }
+}
+
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "not authenticated" });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "you do not have permission to perform this action" });
+    }
+    next();
+  };
+}
+
 // ---------- helpers ----------
 // (add this alongside buildCategoryTree and slugify)
 
@@ -276,7 +308,7 @@ const SORT_OPTIONS = {
 
 // ---------- routes: variants ----------
 
-app.post("/products/:id/variants", async (req, res) => {
+app.post("/products/:id/variants", authenticate, requireRole("admin", "super_admin"), async (req, res) => {
   const productId = req.params.id;
   const { sku, size, color, priceCents, imageUrl } = req.body;
 
