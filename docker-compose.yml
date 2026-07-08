@@ -29,5 +29,33 @@ services:
       auth-db:
         condition: service_healthy
 
+  catalog-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: catalog_user
+      POSTGRES_PASSWORD: catalog_pass
+      POSTGRES_DB: catalog_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog_user -d catalog_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  catalog-service:
+    build: ./services/catalog-service
+    environment:
+      PORT: 4004
+      DATABASE_URL: postgres://catalog_user:catalog_pass@catalog-db:5432/catalog_db
+    ports:
+      - "4004:4004"
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+
 volumes:
   auth_db_data:
+  catalog_db_data:
