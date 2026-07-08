@@ -1,0 +1,9 @@
+version: "3.9"
+
+services:
+  auth-service:
+    build: ./services/auth-service
+    environment:
+      PORT: 4003
+    ports:
+      - "4003:4003"
