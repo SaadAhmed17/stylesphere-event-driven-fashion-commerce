@@ -57,6 +57,34 @@ services:
       catalog-db:
         condition: service_healthy
 
+  inventory-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_pass
+      POSTGRES_DB: inventory_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - inventory_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  inventory-service:
+    build: ./services/inventory-service
+    environment:
+      PORT: 4005
+      DATABASE_URL: postgres://inventory_user:inventory_pass@inventory-db:5432/inventory_db
+    ports:
+      - "4005:4005"
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+
 volumes:
   auth_db_data:
   catalog_db_data:
+  inventory_db_data:
