@@ -43,6 +43,43 @@ app.get("/health", async (req, res) => {
   }
 });
 
+app.post("/stock", async (req, res) => {
+  const { sku, quantity } = req.body;
+
+  if (!sku || quantity === undefined) {
+    return res.status(400).json({ error: "sku and quantity are required" });
+  }
+  if (quantity < 0) {
+    return res.status(400).json({ error: "quantity cannot be negative" });
+  }
+
+  const result = await pool.query(
+    `INSERT INTO stock (sku, quantity_available)
+     VALUES ($1, $2)
+     ON CONFLICT (sku)
+     DO UPDATE SET quantity_available = $2, updated_at = NOW()
+     RETURNING *`,
+    [sku, quantity]
+  );
+
+  res.status(201).json({ stock: result.rows[0] });
+});
+
+app.get("/stock", async (req, res) => {
+  const result = await pool.query("SELECT * FROM stock ORDER BY sku");
+  res.json({ stock: result.rows });
+});
+
+app.get("/stock/:sku", async (req, res) => {
+  const result = await pool.query("SELECT * FROM stock WHERE sku = $1", [req.params.sku]);
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "no stock record found for this sku" });
+  }
+
+  res.json({ stock: result.rows[0] });
+});
+
 async function start() {
   await initDb();
   await connectRabbitMQ();
