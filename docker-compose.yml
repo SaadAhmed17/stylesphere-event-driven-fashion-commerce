@@ -1,6 +1,20 @@
 version: "3.9"
 
 services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   auth-db:
     image: postgres:16-alpine
     environment:
@@ -78,10 +92,13 @@ services:
     environment:
       PORT: 4005
       DATABASE_URL: postgres://inventory_user:inventory_pass@inventory-db:5432/inventory_db
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq
     ports:
       - "4005:4005"
     depends_on:
       inventory-db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
 volumes:

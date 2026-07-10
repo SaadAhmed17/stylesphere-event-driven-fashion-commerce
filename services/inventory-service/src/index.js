@@ -1,13 +1,17 @@
 import express from "express";
 import pg from "pg";
+import amqp from "amqplib";
 
 const PORT = process.env.PORT || 4005;
 const DATABASE_URL = process.env.DATABASE_URL;
+const RABBITMQ_URL = process.env.RABBITMQ_URL;
 
 const app = express();
 app.use(express.json());
 
 const pool = new pg.Pool({ connectionString: DATABASE_URL });
+
+let channel;
 
 async function initDb() {
   await pool.query(`
@@ -21,10 +25,19 @@ async function initDb() {
   console.log("[inventory-service] stock table ready");
 }
 
+async function connectRabbitMQ() {
+  const connection = await amqp.connect(RABBITMQ_URL);
+  channel = await connection.createChannel();
+
+  await channel.assertExchange("orders_exchange", "topic", { durable: true });
+
+  console.log("[inventory-service] connected to RabbitMQ, orders_exchange ready");
+}
+
 app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ok", service: "inventory-service", database: "connected" });
+    res.json({ status: "ok", service: "inventory-service", database: "connected", rabbitmq: channel ? "connected" : "disconnected", });
   } catch (err) {
     res.status(503).json({ status: "error", service: "inventory-service", database: "unreachable" });
   }
@@ -32,6 +45,7 @@ app.get("/health", async (req, res) => {
 
 async function start() {
   await initDb();
+  await connectRabbitMQ();
   app.listen(PORT, () => {
     console.log(`[inventory-service] listening on port ${PORT}`);
   });
