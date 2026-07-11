@@ -29,3 +29,10 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - catalog-service: public browsing endpoint with search, filters, sorting, and pagination
 - catalog-service: JWT authentication and RBAC on admin write routes
 - catalog-service: API documentation (`docs/api/catalog-service.md`)
+- inventory-service: stock tracking with available/reserved split
+- inventory-service: RabbitMQ connection and orders_exchange integration
+- inventory-service: manual stock management endpoints (upsert-based)
+- inventory-service: automatic stock reservation on order.created, with row-level locking
+- inventory-service: automatic stock release on payment.failed (rollback)
+- inventory-service: JWT authentication and RBAC on stock management
+- inventory-service: API documentation (`docs/api/inventory-service.md`)
