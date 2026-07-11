@@ -25,19 +25,96 @@ async function initDb() {
   console.log("[inventory-service] stock table ready");
 }
 
+function publishEvent(type, payload) {
+  const message = { type, version: 1, payload };
+  channel.publish("orders_exchange", type, Buffer.from(JSON.stringify(message)), {
+    persistent: true,
+  });
+  console.log("[inventory-service] published event:", type, payload);
+}
+
+// The core reservation logic - locks the row to stay safe under concurrency
+async function handleOrderCreated({ orderId, productId, quantity }) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      "SELECT quantity_available FROM stock WHERE sku = $1 FOR UPDATE",
+      [productId]
+    );
+
+    const available = result.rows[0]?.quantity_available ?? 0;
+
+    if (available < quantity) {
+      await client.query("ROLLBACK");
+      publishEvent("inventory.failed", {
+        orderId,
+        productId,
+        reason: "insufficient_stock",
+      });
+      return;
+    }
+
+    await client.query(
+      `UPDATE stock
+       SET quantity_available = quantity_available - $1,
+           quantity_reserved = quantity_reserved + $1,
+           updated_at = NOW()
+       WHERE sku = $2`,
+      [quantity, productId]
+    );
+
+    await client.query("COMMIT");
+
+    publishEvent("inventory.reserved", { orderId, productId, quantity });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[inventory-service] reservation error:", err);
+    publishEvent("inventory.failed", {
+      orderId,
+      productId,
+      reason: "internal_error",
+    });
+  } finally {
+    client.release();
+  }
+}
+
 async function connectRabbitMQ() {
   const connection = await amqp.connect(RABBITMQ_URL);
   channel = await connection.createChannel();
 
   await channel.assertExchange("orders_exchange", "topic", { durable: true });
 
-  console.log("[inventory-service] connected to RabbitMQ, orders_exchange ready");
+  await channel.assertQueue("inventory_service_orders", { durable: true });
+  await channel.bindQueue("inventory_service_orders", "orders_exchange", "order.created");
+
+  channel.consume("inventory_service_orders", async (msg) => {
+    if (!msg) return;
+
+    const event = JSON.parse(msg.content.toString());
+    console.log("[inventory-service] received event:", event.type, event.payload);
+
+    if (event.type === "order.created") {
+      await handleOrderCreated(event.payload);
+    }
+
+    channel.ack(msg);
+  });
+
+  console.log("[inventory-service] connected to RabbitMQ, listening for order.created");
 }
 
 app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
-    res.json({ status: "ok", service: "inventory-service", database: "connected", rabbitmq: channel ? "connected" : "disconnected", });
+    res.json({
+      status: "ok",
+      service: "inventory-service",
+      database: "connected",
+      rabbitmq: channel ? "connected" : "disconnected",
+    });
   } catch (err) {
     res.status(503).json({ status: "error", service: "inventory-service", database: "unreachable" });
   }
