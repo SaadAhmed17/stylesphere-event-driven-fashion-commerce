@@ -69,8 +69,9 @@ Detailed phase-by-phase breakdown is tracked in
 
 ## Getting started
 
-Currently runnable: **auth-service** (authentication, JWT, RBAC) and
-**catalog-service** (categories, products, variants, search/filter/pagination).
+Currently runnable: **auth-service**, **catalog-service**, and
+**inventory-service** (including live event-driven stock reservation via
+RabbitMQ).
 
 **Prerequisites:** Docker Desktop, running.
 
@@ -83,6 +84,8 @@ docker-compose up --build
 Once running:
 - Auth Service: `http://localhost:4003` — [API docs](./docs/api/auth-service.md)
 - Catalog Service: `http://localhost:4004` — [API docs](./docs/api/catalog-service.md)
+- Inventory Service: `http://localhost:4005` — [API docs](./docs/api/inventory-service.md)
+- RabbitMQ dashboard: `http://localhost:15672` (admin / admin123)
 
 More services will be added here as they're built — see [Roadmap](#roadmap).
 
