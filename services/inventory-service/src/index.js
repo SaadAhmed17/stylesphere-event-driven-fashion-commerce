@@ -1,10 +1,12 @@
 import express from "express";
 import pg from "pg";
 import amqp from "amqplib";
+import jwt from "jsonwebtoken";
 
 const PORT = process.env.PORT || 4005;
 const DATABASE_URL = process.env.DATABASE_URL;
 const RABBITMQ_URL = process.env.RABBITMQ_URL;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 app.use(express.json());
@@ -23,6 +25,36 @@ async function initDb() {
     );
   `);
   console.log("[inventory-service] stock table ready");
+}
+
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "missing or malformed authorization header" });
+  }
+
+  const token = authHeader.slice("Bearer ".length);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "invalid or expired token" });
+  }
+}
+
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "not authenticated" });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "you do not have permission to perform this action" });
+    }
+    next();
+  };
 }
 
 function publishEvent(type, payload) {
@@ -150,7 +182,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
-app.post("/stock", async (req, res) => {
+app.post("/stock", authenticate, requireRole("admin", "super_admin"), async (req, res) => {
   const { sku, quantity } = req.body;
 
   if (!sku || quantity === undefined) {
