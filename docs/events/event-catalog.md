@@ -1,5 +1,16 @@
 # Event Catalog — MVP Loop
 
+> **Implementation status:** `order.created` (consumed) and `payment.failed`
+> (consumed), plus `inventory.reserved` / `inventory.failed` (published),
+> are implemented in **inventory-service** as of Phase 4 — see
+> [docs/api/inventory-service.md](../api/inventory-service.md#event-driven-behavior-not-callable-directly).
+> `payment.succeeded` / `payment.failed` publishing and `order.created`
+> publishing are not yet implemented — pending Order Service (Phase 5) and
+> Payment Service (Phase 6).
+
+This document is the single source of truth for every event in the MVP
+checkout flow. ...
+
 This document is the single source of truth for every event in the MVP
 checkout flow. Any service publishing or consuming one of these events must
 match the shape defined here exactly. If a service needs a field that isn't
