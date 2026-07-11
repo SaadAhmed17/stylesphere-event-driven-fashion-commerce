@@ -33,7 +33,6 @@ function publishEvent(type, payload) {
   console.log("[inventory-service] published event:", type, payload);
 }
 
-// The core reservation logic - locks the row to stay safe under concurrency
 async function handleOrderCreated({ orderId, productId, quantity }) {
   const client = await pool.connect();
   try {
@@ -81,6 +80,34 @@ async function handleOrderCreated({ orderId, productId, quantity }) {
   }
 }
 
+// Payment failed after we already reserved stock for it - give it back.
+async function handlePaymentFailed({ orderId, productId, quantity }) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    await client.query(
+      `UPDATE stock
+       SET quantity_available = quantity_available + $1,
+           quantity_reserved = GREATEST(quantity_reserved - $1, 0),
+           updated_at = NOW()
+       WHERE sku = $2`,
+      [quantity, productId]
+    );
+
+    await client.query("COMMIT");
+
+    console.log(
+      `[inventory-service] rolled back ${quantity} unit(s) of ${productId} for order ${orderId}`
+    );
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[inventory-service] rollback error:", err);
+  } finally {
+    client.release();
+  }
+}
+
 async function connectRabbitMQ() {
   const connection = await amqp.connect(RABBITMQ_URL);
   channel = await connection.createChannel();
@@ -89,6 +116,7 @@ async function connectRabbitMQ() {
 
   await channel.assertQueue("inventory_service_orders", { durable: true });
   await channel.bindQueue("inventory_service_orders", "orders_exchange", "order.created");
+  await channel.bindQueue("inventory_service_orders", "orders_exchange", "payment.failed");
 
   channel.consume("inventory_service_orders", async (msg) => {
     if (!msg) return;
@@ -98,12 +126,14 @@ async function connectRabbitMQ() {
 
     if (event.type === "order.created") {
       await handleOrderCreated(event.payload);
+    } else if (event.type === "payment.failed") {
+      await handlePaymentFailed(event.payload);
     }
 
     channel.ack(msg);
   });
 
-  console.log("[inventory-service] connected to RabbitMQ, listening for order.created");
+  console.log("[inventory-service] connected to RabbitMQ, listening for order.created and payment.failed");
 }
 
 app.get("/health", async (req, res) => {
