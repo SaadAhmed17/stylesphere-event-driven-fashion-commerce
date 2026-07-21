@@ -102,7 +102,35 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  order-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_pass
+      POSTGRES_DB: order_db
+    ports:
+      - "5436:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_user -d order_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  order-service:
+    build: ./services/order-service
+    environment:
+      PORT: 4006
+      DATABASE_URL: postgres://order_user:order_pass@order-db:5432/order_db
+    ports:
+      - "4006:4006"
+    depends_on:
+      order-db:
+        condition: service_healthy      
+
 volumes:
   auth_db_data:
   catalog_db_data:
   inventory_db_data:
+  order_db_data:
