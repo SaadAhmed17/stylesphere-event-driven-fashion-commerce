@@ -8,6 +8,7 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
+    "amqplib": "^0.10.4",
     "express": "^4.19.2",
     "pg": "^8.11.5"
   }

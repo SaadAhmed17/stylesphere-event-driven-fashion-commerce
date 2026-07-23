@@ -123,11 +123,14 @@ services:
     environment:
       PORT: 4006
       DATABASE_URL: postgres://order_user:order_pass@order-db:5432/order_db
+      RABBITMQ_URL: amqp://admin:admin123@rabbitmq
     ports:
       - "4006:4006"
     depends_on:
       order-db:
-        condition: service_healthy      
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy        
 
 volumes:
   auth_db_data:
