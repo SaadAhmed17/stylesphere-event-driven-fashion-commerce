@@ -69,9 +69,11 @@ Detailed phase-by-phase breakdown is tracked in
 
 ## Getting started
 
-Currently runnable: **auth-service**, **catalog-service**, and
-**inventory-service** (including live event-driven stock reservation via
-RabbitMQ).
+Currently runnable: **auth-service**, **catalog-service**,
+**inventory-service**, and **order-service** — the checkout flow works
+end-to-end for the inventory side; payment events must currently be
+simulated manually via the RabbitMQ dashboard until Payment Service
+(Phase 6) exists.
 
 **Prerequisites:** Docker Desktop, running.
 
@@ -85,6 +87,7 @@ Once running:
 - Auth Service: `http://localhost:4003` — [API docs](./docs/api/auth-service.md)
 - Catalog Service: `http://localhost:4004` — [API docs](./docs/api/catalog-service.md)
 - Inventory Service: `http://localhost:4005` — [API docs](./docs/api/inventory-service.md)
+- Order Service: `http://localhost:4006` — [API docs](./docs/api/order-service.md)
 - RabbitMQ dashboard: `http://localhost:15672` (admin / admin123)
 
 More services will be added here as they're built — see [Roadmap](#roadmap).
