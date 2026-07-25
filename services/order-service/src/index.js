@@ -81,6 +81,57 @@ app.get("/health", async (req, res) => {
   }
 });
 
+function publishEvent(type, payload) {
+  const message = { type, version: 1, payload };
+  channel.publish("orders_exchange", type, Buffer.from(JSON.stringify(message)), {
+    persistent: true,
+  });
+  console.log("[order-service] published event:", type, payload);
+}
+
+app.post("/orders", async (req, res) => {
+  const { userId, sku, quantity, unitPriceCents } = req.body;
+
+  if (!sku || !quantity || unitPriceCents === undefined) {
+    return res.status(400).json({ error: "sku, quantity, and unitPriceCents are required" });
+  }
+  if (quantity <= 0) {
+    return res.status(400).json({ error: "quantity must be greater than zero" });
+  }
+
+  const totalCents = quantity * unitPriceCents;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      `INSERT INTO orders (user_id, status, total_cents)
+       VALUES ($1, 'pending', $2) RETURNING *`,
+      [userId || null, totalCents]
+    );
+    const order = orderResult.rows[0];
+
+    await client.query(
+      `INSERT INTO order_items (order_id, sku, quantity, unit_price_cents)
+       VALUES ($1, $2, $3, $4)`,
+      [order.id, sku, quantity, unitPriceCents]
+    );
+
+    await client.query("COMMIT");
+
+    publishEvent("order.created", { orderId: order.id, productId: sku, quantity });
+
+    res.status(201).json({ orderId: order.id, status: order.status });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("[order-service] failed to create order:", err);
+    res.status(500).json({ error: "failed to create order" });
+  } finally {
+    client.release();
+  }
+});
+
 async function start() {
   await initDb();
   await connectRabbitMQ();
