@@ -36,3 +36,9 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - inventory-service: automatic stock release on payment.failed (rollback)
 - inventory-service: JWT authentication and RBAC on stock management
 - inventory-service: API documentation (`docs/api/inventory-service.md`)
+- order-service: order and order_items tables with transactional creation
+- order-service: RabbitMQ connection with queue bound to inventory and payment outcome events
+- order-service: order creation endpoint publishing order.created
+- order-service: order status updates driven by inventory.failed, payment.succeeded, and payment.failed events
+- order-service: order listing and order detail endpoints
+- order-service: API documentation (`docs/api/order-service.md`)
