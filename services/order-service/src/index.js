@@ -56,8 +56,19 @@ async function connectRabbitMQ() {
     const event = JSON.parse(msg.content.toString());
     console.log("[order-service] received event:", event.type, event.payload);
 
-    // Business logic (updating order status) is added in Milestone 5.
-    // For now we just acknowledge receipt.
+    if (event.type === "payment.succeeded") {
+      await pool.query(
+        "UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2",
+        ["confirmed", event.payload.orderId]
+      );
+      console.log(`[order-service] order ${event.payload.orderId} confirmed`);
+    } else if (event.type === "inventory.failed" || event.type === "payment.failed") {
+      await pool.query(
+        "UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2",
+        ["cancelled", event.payload.orderId]
+      );
+      console.log(`[order-service] order ${event.payload.orderId} cancelled (${event.type})`);
+    }
 
     channel.ack(msg);
   });
