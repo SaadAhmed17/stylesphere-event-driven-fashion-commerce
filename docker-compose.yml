@@ -130,10 +130,38 @@ services:
       order-db:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy        
+        condition: service_healthy
+
+  payment-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_pass
+      POSTGRES_DB: payment_db
+    ports:
+      - "5437:5432"
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payment_user -d payment_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  payment-service:
+    build: ./services/payment-service
+    environment:
+      PORT: 4007
+      DATABASE_URL: postgres://payment_user:payment_pass@payment-db:5432/payment_db
+    ports:
+      - "4007:4007"
+    depends_on:
+      payment-db:
+        condition: service_healthy
 
 volumes:
   auth_db_data:
   catalog_db_data:
   inventory_db_data:
   order_db_data:
+  payment_db_data:
