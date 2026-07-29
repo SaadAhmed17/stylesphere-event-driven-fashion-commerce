@@ -43,7 +43,9 @@ async function connectRabbitMQ() {
     const event = JSON.parse(msg.content.toString());
     console.log("[payment-service] received event:", event.type, event.payload);
 
-    // Charge simulation logic is added in Milestone 4.
+    if (event.type === "inventory.reserved") {
+      await handleReservation(event.payload);
+    }
 
     channel.ack(msg);
   });
@@ -60,6 +62,33 @@ app.get("/health", async (req, res) => {
     res.status(503).json({ status: "error", service: "payment-service", database: "unreachable" });
   }
 });
+
+function publishEvent(type, payload) {
+  const message = { type, version: 1, payload };
+  channel.publish("orders_exchange", type, Buffer.from(JSON.stringify(message)), {
+    persistent: true,
+  });
+  console.log("[payment-service] published event:", type, payload);
+}
+
+// Simulated charge - no real payment gateway yet. quantity >= 5 always
+// declines, so both the success and failure paths can be tested on demand.
+async function handleReservation({ orderId, productId, quantity }) {
+  const declined = quantity >= 5;
+  const amountCents = quantity * 4999; // matches the flat test price used throughout this project so far
+
+  await pool.query(
+    `INSERT INTO payments (order_id, method, amount_cents, status)
+     VALUES ($1, $2, $3, $4)`,
+    [orderId, "cod", amountCents, declined ? "declined" : "charged"]
+  );
+
+  if (declined) {
+    publishEvent("payment.failed", { orderId, productId, quantity, reason: "card_declined" });
+  } else {
+    publishEvent("payment.succeeded", { orderId, productId, quantity });
+  }
+}
 
 async function start() {
   await initDb();
