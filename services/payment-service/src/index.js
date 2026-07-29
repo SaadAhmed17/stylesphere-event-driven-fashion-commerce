@@ -46,13 +46,11 @@ async function connectRabbitMQ() {
     if (event.type === "inventory.reserved") {
       await handleReservation(event.payload);
     }
-
     channel.ack(msg);
   });
 
   console.log("[payment-service] connected to RabbitMQ, listening for inventory.reserved");
 }
-
 
 app.get("/health", async (req, res) => {
   try {
