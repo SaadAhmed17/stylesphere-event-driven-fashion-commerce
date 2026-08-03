@@ -69,8 +69,26 @@ function publishEvent(type, payload) {
   console.log("[payment-service] published event:", type, payload);
 }
 
-// Simulated charge - no real payment gateway yet. quantity >= 5 always
-// declines, so both the success and failure paths can be tested on demand.
+app.get("/payments", async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM payments ORDER BY created_at DESC LIMIT 50"
+  );
+  res.json({ payments: result.rows });
+});
+
+app.get("/payments/:orderId", async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM payments WHERE order_id = $1 ORDER BY created_at DESC",
+    [req.params.orderId]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "no payment record found for this order" });
+  }
+
+  res.json({ payments: result.rows });
+});
+
 async function handleReservation({ orderId, productId, quantity }) {
   const declined = quantity >= 5;
   const amountCents = quantity * 4999; // matches the flat test price used throughout this project so far
