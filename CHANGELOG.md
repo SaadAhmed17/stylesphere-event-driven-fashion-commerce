@@ -42,3 +42,11 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - order-service: order status updates driven by inventory.failed, payment.succeeded, and payment.failed events
 - order-service: order listing and order detail endpoints
 - order-service: API documentation (`docs/api/order-service.md`)
+- payment-service: payments table with method/status tracking
+- payment-service: RabbitMQ connection with queue bound to inventory.reserved
+- payment-service: simulated payment charging with configurable decline trigger
+- payment-service: payment.succeeded / payment.failed publishing, closing the MVP event loop
+- payment-service: payment listing and payment-by-order endpoints
+- payment-service: admin-only access to full payment list, per-order lookup remains public
+- payment-service: API documentation (`docs/api/payment-service.md`)
+- **MVP checkout loop complete**: order placement through confirmation/cancellation now works end-to-end with zero manual intervention across auth, catalog, inventory, order, and payment services
