@@ -1,10 +1,12 @@
 import express from "express";
 import pg from "pg";
 import amqp from "amqplib";
+import jwt from "jsonwebtoken";
 
 const PORT = process.env.PORT || 4007;
 const DATABASE_URL = process.env.DATABASE_URL;
 const RABBITMQ_URL = process.env.RABBITMQ_URL;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 app.use(express.json());
@@ -69,7 +71,7 @@ function publishEvent(type, payload) {
   console.log("[payment-service] published event:", type, payload);
 }
 
-app.get("/payments", async (req, res) => {
+app.get("/payments", authenticate, requireRole("admin", "super_admin"), async (req, res) => {
   const result = await pool.query(
     "SELECT * FROM payments ORDER BY created_at DESC LIMIT 50"
   );
@@ -104,6 +106,36 @@ async function handleReservation({ orderId, productId, quantity }) {
   } else {
     publishEvent("payment.succeeded", { orderId, productId, quantity });
   }
+}
+
+function authenticate(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "missing or malformed authorization header" });
+  }
+
+  const token = authHeader.slice("Bearer ".length);
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "invalid or expired token" });
+  }
+}
+
+function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "not authenticated" });
+    }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ error: "you do not have permission to perform this action" });
+    }
+    next();
+  };
 }
 
 async function start() {

@@ -154,6 +154,7 @@ services:
       PORT: 4007
       DATABASE_URL: postgres://payment_user:payment_pass@payment-db:5432/payment_db
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq
+      JWT_SECRET: dev-secret-change-me-later
     ports:
       - "4007:4007"
     depends_on:
