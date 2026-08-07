@@ -1,17 +1,18 @@
 # Event Catalog — MVP Loop
 
-> **Implementation status:** `order.created` (published) and
-> `inventory.failed` / `payment.succeeded` / `payment.failed` (all
-> consumed) are implemented in **order-service** as of Phase 5 — see
-> [docs/api/order-service.md](../api/order-service.md#event-driven-behavior-not-callable-directly).
-> `order.created` (consumed) and `payment.failed` (consumed), plus
-> `inventory.reserved` / `inventory.failed` (published), are implemented in
-> **inventory-service** as of Phase 4 — see
-> [docs/api/inventory-service.md](../api/inventory-service.md#event-driven-behavior-not-callable-directly).
-> `inventory.reserved` (consumed) and `payment.succeeded` /
-> `payment.failed` (published) are **not yet implemented** — pending
-> Payment Service (Phase 6). Until then, these events can only be tested by
-> publishing them manually through the RabbitMQ dashboard.
+> **Implementation status:** As of Phase 6, the entire MVP event loop is
+> fully implemented and verified end-to-end with zero manual RabbitMQ
+> intervention required:
+> - `order.created` — published by **order-service**, consumed by **inventory-service**
+> - `inventory.reserved` — published by **inventory-service**, consumed by **payment-service**
+> - `inventory.failed` — published by **inventory-service**, consumed by **order-service**
+> - `payment.succeeded` — published by **payment-service**, consumed by **order-service**
+> - `payment.failed` — published by **payment-service**, consumed by **order-service** and **inventory-service** (stock rollback)
+>
+> See [docs/api/order-service.md](../api/order-service.md),
+> [docs/api/inventory-service.md](../api/inventory-service.md), and
+> [docs/api/payment-service.md](../api/payment-service.md) for each
+> service's exact implementation.
 
 This document is the single source of truth for every event in the MVP
 checkout flow. ...
