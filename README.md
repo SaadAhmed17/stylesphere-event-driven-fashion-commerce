@@ -69,11 +69,11 @@ Detailed phase-by-phase breakdown is tracked in
 
 ## Getting started
 
-Currently runnable: **auth-service**, **catalog-service**,
-**inventory-service**, and **order-service** — the checkout flow works
-end-to-end for the inventory side; payment events must currently be
-simulated manually via the RabbitMQ dashboard until Payment Service
-(Phase 6) exists.
+**The full MVP checkout loop is complete and runnable**: auth-service,
+catalog-service, inventory-service, order-service, and payment-service all
+work together end-to-end — placing an order automatically flows through
+stock reservation, simulated payment, and final confirmation/cancellation,
+with zero manual intervention required.
 
 **Prerequisites:** Docker Desktop, running.
 
@@ -88,9 +88,18 @@ Once running:
 - Catalog Service: `http://localhost:4004` — [API docs](./docs/api/catalog-service.md)
 - Inventory Service: `http://localhost:4005` — [API docs](./docs/api/inventory-service.md)
 - Order Service: `http://localhost:4006` — [API docs](./docs/api/order-service.md)
+- Payment Service: `http://localhost:4007` — [API docs](./docs/api/payment-service.md)
 - RabbitMQ dashboard: `http://localhost:15672` (admin / admin123)
 
-More services will be added here as they're built — see [Roadmap](#roadmap).
+**Try the full loop yourself:**
+```bash
+curl -X POST http://localhost:4006/orders -H "Content-Type: application/json" \
+  -d '{"sku": "hoodie-m-black", "quantity": 2, "unitPriceCents": 4999}'
+# then check its status a moment later:
+curl http://localhost:4006/orders/<orderId>
+```
+
+No frontend yet — see [Roadmap](#roadmap) for what's next.
 
 ## Author
 
