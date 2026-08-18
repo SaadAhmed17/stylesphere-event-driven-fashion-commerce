@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-14
+
 ### Added
 - Project folder structure (`docs/`, `adr/`, `services/`, `frontend/`, `.github/`)
 - `README.md` with project overview and architecture summary
