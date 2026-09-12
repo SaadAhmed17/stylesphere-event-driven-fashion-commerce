@@ -101,6 +101,15 @@ curl http://localhost:4006/orders/<orderId>
 
 No frontend yet — see [Roadmap](#roadmap) for what's next.
 
+## Known limitations
+
+This project is under active development. Several known security and
+architectural simplifications are intentionally deferred and tracked as
+GitHub Issues rather than silently ignored — see Issues labeled
+[`security`](../../issues?q=is%3Aissue+is%3Aopen+label%3Asecurity) and
+[`tech-debt`](../../issues?q=is%3Aissue+is%3Aopen+label%3Atech-debt).
+
+
 ## Author
 
 Built by [Saad Ahmed](https://github.com/SaadAhmed17) as a personal portfolio project,
