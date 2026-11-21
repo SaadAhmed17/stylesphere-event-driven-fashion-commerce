@@ -97,7 +97,7 @@ app.put("/cart/items/:sku", authenticate, async (req, res) => {
   if (!Number.isInteger(quantity) || quantity <= 0) {
     return res
       .status(400)
-      .json({ error: "quantity must be a whole number greater than zero (use DELETE to remove an item)" });
+      .json({ error: "quantity must be a whole number greater than zero" });
   }
 
   const result = await pool.query(
