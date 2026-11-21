@@ -51,4 +51,9 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - payment-service: payment listing and payment-by-order endpoints
 - payment-service: admin-only access to full payment list, per-order lookup remains public
 - payment-service: API documentation (`docs/api/payment-service.md`)
+- cart-service: per-user cart storage with a unique (user, SKU) constraint
+- cart-service: JWT authentication on every endpoint, with the user identity taken only from the verified token
+- cart-service: add-to-cart with quantity increment on duplicate SKU
+- cart-service: view cart, set exact quantity, remove one item, and clear cart endpoints
+- cart-service: API documentation (`docs/api/cart-service.md`)
 - **MVP checkout loop complete**: order placement through confirmation/cancellation now works end-to-end with zero manual intervention across auth, catalog, inventory, order, and payment services
