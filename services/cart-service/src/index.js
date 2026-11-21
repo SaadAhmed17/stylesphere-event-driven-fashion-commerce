@@ -87,6 +87,57 @@ app.get("/cart", authenticate, async (req, res) => {
   res.json({ items: result.rows });
 });
 
+app.put("/cart/items/:sku", authenticate, async (req, res) => {
+  const { quantity } = req.body;
+  const userId = req.user.userId;
+
+  if (quantity === undefined) {
+    return res.status(400).json({ error: "quantity is required" });
+  }
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return res
+      .status(400)
+      .json({ error: "quantity must be a whole number greater than zero (use DELETE to remove an item)" });
+  }
+
+  const result = await pool.query(
+    `UPDATE cart_items
+     SET quantity = $1, updated_at = NOW()
+     WHERE user_id = $2 AND sku = $3
+     RETURNING *`,
+    [quantity, userId, req.params.sku]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "item not found in your cart" });
+  }
+
+  res.json({ item: result.rows[0] });
+});
+
+app.delete("/cart/items/:sku", authenticate, async (req, res) => {
+  const userId = req.user.userId;
+
+  const result = await pool.query(
+    "DELETE FROM cart_items WHERE user_id = $1 AND sku = $2 RETURNING sku",
+    [userId, req.params.sku]
+  );
+
+  if (result.rows.length === 0) {
+    return res.status(404).json({ error: "item not found in your cart" });
+  }
+
+  res.json({ message: "item removed", sku: result.rows[0].sku });
+});
+
+app.delete("/cart", authenticate, async (req, res) => {
+  const userId = req.user.userId;
+
+  const result = await pool.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
+
+  res.json({ message: "cart cleared", removedItems: result.rowCount });
+});
+
 async function start() {
   await initDb();
   app.listen(PORT, () => {
