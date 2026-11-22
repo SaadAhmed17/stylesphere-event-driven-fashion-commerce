@@ -191,6 +191,35 @@ services:
       cart-db:
         condition: service_healthy
 
+  
+  wishlist-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wishlist_user
+      POSTGRES_PASSWORD: wishlist_pass
+      POSTGRES_DB: wishlist_db
+    ports:
+      - "5439:5432"
+    volumes:
+      - wishlist_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wishlist_user -d wishlist_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  wishlist-service:
+    build: ./services/wishlist-service
+    environment:
+      PORT: 4009
+      DATABASE_URL: postgres://wishlist_user:wishlist_pass@wishlist-db:5432/wishlist_db
+      JWT_SECRET: dev-secret-change-me-later
+    ports:
+      - "4009:4009"
+    depends_on:
+      wishlist-db:
+        condition: service_healthy
+
 volumes:
   auth_db_data:
   catalog_db_data:
@@ -198,3 +227,4 @@ volumes:
   order_db_data:
   payment_db_data:
   cart_db_data:
+  wishlist_db_data:
