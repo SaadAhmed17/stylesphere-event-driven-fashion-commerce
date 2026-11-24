@@ -85,6 +85,37 @@ app.get("/wishlist", authenticate, async (req, res) => {
   res.json({ items: result.rows });
 });
 
+app.get("/wishlist/items/:sku", authenticate, async (req, res) => {
+  const userId = req.user.userId;
+
+  const result = await pool.query(
+    "SELECT 1 FROM wishlist_items WHERE user_id = $1 AND sku = $2",
+    [userId, req.params.sku]
+  );
+
+  res.json({ sku: req.params.sku, inWishlist: result.rows.length > 0 });
+});
+
+app.delete("/wishlist/items/:sku", authenticate, async (req, res) => {
+  const userId = req.user.userId;
+
+  const result = await pool.query(
+    "DELETE FROM wishlist_items WHERE user_id = $1 AND sku = $2 RETURNING sku",
+    [userId, req.params.sku]
+  );
+
+  // Idempotent: removing something that isn't there is still a success.
+  res.json({ sku: req.params.sku, removed: result.rows.length > 0 });
+});
+
+app.delete("/wishlist", authenticate, async (req, res) => {
+  const userId = req.user.userId;
+
+  const result = await pool.query("DELETE FROM wishlist_items WHERE user_id = $1", [userId]);
+
+  res.json({ message: "wishlist cleared", removedItems: result.rowCount });
+});
+
 async function start() {
   await initDb();
   app.listen(PORT, () => {
