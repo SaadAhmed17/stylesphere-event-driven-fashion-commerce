@@ -91,6 +91,7 @@ Once running:
 - Payment Service: `http://localhost:4007` — [API docs](./docs/api/payment-service.md)
 - RabbitMQ dashboard: `http://localhost:15672` (admin / admin123)
 - Cart Service: `http://localhost:4008` — [API docs](./docs/api/cart-service.md)
+- Wishlist Service: `http://localhost:4009` — [API docs](./docs/api/wishlist-service.md)
 
 **Try the full loop yourself:**
 ```bash
