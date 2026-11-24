@@ -56,4 +56,9 @@ and this project follows [Semantic Versioning](https://semver.org/).
 - cart-service: add-to-cart with quantity increment on duplicate SKU
 - cart-service: view cart, set exact quantity, remove one item, and clear cart endpoints
 - cart-service: API documentation (`docs/api/cart-service.md`)
+- wishlist-service: per-user wishlist with a composite (user, SKU) primary key
+- wishlist-service: idempotent add and idempotent remove, with JWT authentication on every endpoint
+- wishlist-service: view wishlist (newest first), check a single item, remove one item, and clear wishlist endpoints
+- wishlist-service: API documentation (`docs/api/wishlist-service.md`)
+- ADR 0005: Use events for cross-service workflows only
 - **MVP checkout loop complete**: order placement through confirmation/cancellation now works end-to-end with zero manual intervention across auth, catalog, inventory, order, and payment services
