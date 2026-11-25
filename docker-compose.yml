@@ -219,6 +219,34 @@ services:
     depends_on:
       wishlist-db:
         condition: service_healthy
+        
+  address-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: address_user
+      POSTGRES_PASSWORD: address_pass
+      POSTGRES_DB: address_db
+    ports:
+      - "5440:5432"
+    volumes:
+      - address_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U address_user -d address_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  address-service:
+    build: ./services/address-service
+    environment:
+      PORT: 4010
+      DATABASE_URL: postgres://address_user:address_pass@address-db:5432/address_db
+      JWT_SECRET: dev-secret-change-me-later
+    ports:
+      - "4010:4010"
+    depends_on:
+      address-db:
+        condition: service_healthy       
 
 volumes:
   auth_db_data:
@@ -228,3 +256,4 @@ volumes:
   payment_db_data:
   cart_db_data:
   wishlist_db_data:
+  address_db_data:
